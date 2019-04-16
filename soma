@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+# Lists and plays Soma FM radio stations through mpd
+#
+# Dependencies:
+# * mpc (configured to connect to an mpd instance)
+# * xmlstarlet
+# * curl
+# * grep
+# * awk
+#
+set -e
+
+list() {
+	curl -s -L 'http://somafm.com/channels.xml' \
+	|xmlstarlet sel -T -t \
+		--match "/channels/channel" \
+		--if "highestpls[@format='aac']" \
+			--value-of "highestpls[@format='aac']" \
+		--elif "highestpls[@format='aacp']" \
+			--value-of "highestpls[@format='aacp']" \
+		--elif "highestpls[@format='mp3']" \
+			--value-of "highestpls[@format='mp3']" \
+		--elif "fastpls[@format='aac']" \
+			--value-of "fastpls[@format='aac']" \
+		--elif "fastpls[@format='aacp']" \
+			--value-of "fastpls[@format='aacp']" \
+		--elif "fastpls[@format='mp3']" \
+			--value-of "fastpls[@format='mp3']" \
+		--elif "slowpls[@format='aac']" \
+			--value-of "slowpls[@format='aac']" \
+		--elif "slowpls[@format='aacp']" \
+			--value-of "slowpls[@format='aacp']" \
+		--elif "slowpls[@format='mp3']" \
+			--value-of "slowpls[@format='mp3']" \
+		--break \
+		--output "	" \
+		--value-of "title" \
+		--output "	" \
+		--value-of "translate(genre,'|',',')" \
+		--output "	" \
+		--value-of "description" \
+		--nl
+}
+
+play() {
+	mpc -q clear
+	list \
+	|grep "$@" \
+	|awk '{print $1}' \
+	|mpc -q load
+	mpc -q shuffle
+	mpc play
+}
+
+help() {
+	fmt <<-EOF
+	Lists and plays Soma FM radio stations through mpd
+
+	List available channels:
+
+	$0
+
+	Play channel(s):
+	
+	$0 [grep options] search
+
+	search is matched against the playlist url, the station id, and the genre(s) of the channels
+
+	All loaded streams are shuffled before playing starts. This helps distribute server load.
+
+	Specifying a period (".") as the search string will load all stations. This
+	may be useful for a sort of jukebox with lots of genres in random order.
+	EOF
+}
+
+if [ $# -eq 0 ]; then
+	# Lists all stations. We cut out the stream URL and arrange the output in neat columns
+	list|cut -d $'\t' -f2-|column -t -s $'\t'
+elif [ $# -eq 1 ] && ( [ "$1" = "-h" ] || [ "$1" = "--help" ] ); then
+	help
+else
+	play "$@"
+fi
