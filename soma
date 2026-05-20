@@ -46,7 +46,7 @@ list() {
 play() {
 	mpc -q clear
 	list \
-	|grep "$@" \
+	|grep -i "$@" \
 	|awk '{print $1}' \
 	|mpc -q load
 	mpc -q shuffle
